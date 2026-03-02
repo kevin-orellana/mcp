@@ -1396,6 +1396,30 @@
       ]
     },
     {
+      "category": "AI & Machine Learning",
+      "description": "Execute code, commands, and manage files in sandboxed environments via Amazon Bedrock AgentCore",
+      "icon": "\ud83d\udcbb",
+      "id": "amazon-bedrock-agentcore-code-interpreter-mcp-server",
+      "name": "Amazon Bedrock AgentCore Code Interpreter MCP Server",
+      "source_path": "src/amazon-bedrock-agentcore-code-interpreter-mcp-server/",
+      "subcategory": "Code Execution",
+      "tags": [
+        "ai-ml",
+        "bedrock",
+        "agentcore",
+        "code-interpreter",
+        "code-execution",
+        "sandbox",
+        "python",
+        "javascript",
+        "autonomous"
+      ],
+      "workflows": [
+        "autonomous",
+        "conversational"
+      ]
+    },
+    {
       "category": "Cost & Operations",
       "description": "Assess AWS environments against the Well-Architected Framework Security Pillar",
       "icon": "\ud83d\udcb0",
