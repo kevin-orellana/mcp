@@ -20,6 +20,25 @@ from loguru import logger
 from typing import Any
 
 
+# Exception types whose messages are safe to return to the MCP client verbatim.
+# All other exceptions get a generic message to avoid leaking credentials,
+# internal paths, or stack details.
+_SAFE_EXCEPTIONS = (ValueError, TypeError, FileNotFoundError)
+
+
+def _safe_error_message(e: Exception) -> str:
+    """Return a client-safe error string for an exception.
+
+    Known-safe exception types (validation errors, type errors) are returned
+    verbatim. All other exceptions are replaced with a generic message so that
+    SDK or boto internals (which may contain credentials or paths) are not
+    exposed to the MCP client.
+    """
+    if isinstance(e, _SAFE_EXCEPTIONS):
+        return f'{type(e).__name__}: {e}'
+    return f'{type(e).__name__}: An internal error occurred. Check server logs for details.'
+
+
 def _parse_invoke_response(result: Any) -> dict[str, Any]:
     """Parse the response from invoke_code_interpreter.
 
@@ -129,11 +148,12 @@ async def execute_code(
 
     except Exception as e:
         logger.error(f'Code execution failed: {type(e).__name__}: {e}', exc_info=True)
+        safe_msg = _safe_error_message(e)
         return ExecutionResult(
             is_error=True,
             exit_code=1,
-            stderr=f'{type(e).__name__}: {e}',
-            message=f'Code execution failed: {type(e).__name__}: {e}',
+            stderr=safe_msg,
+            message=f'Code execution failed: {safe_msg}',
         ).model_dump()
 
 
@@ -176,11 +196,12 @@ async def execute_command(
 
     except Exception as e:
         logger.error(f'Command execution failed: {type(e).__name__}: {e}', exc_info=True)
+        safe_msg = _safe_error_message(e)
         return ExecutionResult(
             is_error=True,
             exit_code=1,
-            stderr=f'{type(e).__name__}: {e}',
-            message=f'Command execution failed: {type(e).__name__}: {e}',
+            stderr=safe_msg,
+            message=f'Command execution failed: {safe_msg}',
         ).model_dump()
 
 
@@ -229,9 +250,10 @@ async def install_packages(
 
     except Exception as e:
         logger.error(f'Package installation failed: {type(e).__name__}: {e}', exc_info=True)
+        safe_msg = _safe_error_message(e)
         return ExecutionResult(
             is_error=True,
             exit_code=1,
-            stderr=f'{type(e).__name__}: {e}',
-            message=f'Package installation failed: {type(e).__name__}: {e}',
+            stderr=safe_msg,
+            message=f'Package installation failed: {safe_msg}',
         ).model_dump()

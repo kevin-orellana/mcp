@@ -21,6 +21,19 @@ from loguru import logger
 from typing import Any
 
 
+def _validate_sandbox_path(path: str) -> None:
+    """Reject paths that attempt traversal outside the sandbox working directory.
+
+    Args:
+        path: Relative file path to validate.
+
+    Raises:
+        ValueError: If the path contains traversal sequences or is absolute.
+    """
+    if '..' in path:
+        raise ValueError('Path traversal sequences (..) are not allowed')
+
+
 async def upload_file(
     session_id: str,
     path: str,
@@ -51,6 +64,8 @@ async def upload_file(
     logger.info(f'Uploading file to session {session_id}: {path}')
 
     try:
+        _validate_sandbox_path(path)
+
         kwargs: dict[str, Any] = {
             'path': path,
             'content': content,
@@ -80,7 +95,7 @@ async def upload_file(
         return FileOperationResult(
             path=path,
             is_error=True,
-            message=f'File upload failed: {type(e).__name__}: {e}',
+            message=f'File upload failed: {type(e).__name__}: An internal error occurred.',
         ).model_dump()
 
 
@@ -107,6 +122,8 @@ async def download_file(
     logger.info(f'Downloading file from session {session_id}: {path}')
 
     try:
+        _validate_sandbox_path(path)
+
         # SDK download_file() returns Union[str, bytes] directly,
         # raises FileNotFoundError if file doesn't exist
         result = client.download_file(path=path)
@@ -134,17 +151,17 @@ async def download_file(
         )
         return response.model_dump()
 
-    except FileNotFoundError:
-        logger.error(f'File not found: {path}')
+    except (ValueError, FileNotFoundError) as e:
+        logger.error(f'File download failed: {type(e).__name__}: {e}')
         return FileOperationResult(
             path=path,
             is_error=True,
-            message=f'File not found: {path}',
+            message=f'File download failed: {type(e).__name__}: {e}',
         ).model_dump()
     except Exception as e:
         logger.error(f'File download failed: {type(e).__name__}: {e}', exc_info=True)
         return FileOperationResult(
             path=path,
             is_error=True,
-            message=f'File download failed: {type(e).__name__}: {e}',
+            message=f'File download failed: {type(e).__name__}: An internal error occurred.',
         ).model_dump()

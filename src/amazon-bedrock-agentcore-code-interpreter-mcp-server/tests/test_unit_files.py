@@ -15,10 +15,39 @@
 """Tests for file operation tools."""
 
 from awslabs.amazon_bedrock_agentcore_code_interpreter_mcp_server.tools import files
+from awslabs.amazon_bedrock_agentcore_code_interpreter_mcp_server.tools.files import (
+    _validate_sandbox_path,
+)
 from unittest.mock import MagicMock, patch
+import pytest
 
 
 MODULE_PATH = 'awslabs.amazon_bedrock_agentcore_code_interpreter_mcp_server.tools.files'
+
+
+class TestValidateSandboxPath:
+    """Test cases for _validate_sandbox_path."""
+
+    def test_valid_relative_path(self):
+        """Test valid relative paths pass validation."""
+        _validate_sandbox_path('data/input.csv')
+        _validate_sandbox_path('scripts/run.py')
+        _validate_sandbox_path('output.txt')
+
+    def test_rejects_parent_traversal(self):
+        """Test rejects paths with .. sequences."""
+        with pytest.raises(ValueError, match='Path traversal'):
+            _validate_sandbox_path('../../../etc/passwd')
+
+    def test_rejects_mid_path_traversal(self):
+        """Test rejects traversal sequences in the middle of a path."""
+        with pytest.raises(ValueError, match='Path traversal'):
+            _validate_sandbox_path('data/../../etc/passwd')
+
+    def test_rejects_bare_dotdot(self):
+        """Test rejects bare .. path."""
+        with pytest.raises(ValueError, match='Path traversal'):
+            _validate_sandbox_path('..')
 
 
 class TestUploadFile:
@@ -94,7 +123,7 @@ class TestUploadFile:
 
     @patch(f'{MODULE_PATH}.get_client')
     async def test_upload_file_sdk_exception(self, mock_get_client):
-        """Test handles SDK exception gracefully."""
+        """Test handles SDK exception gracefully without leaking details."""
         # Arrange
         mock_client = MagicMock()
         mock_client.upload_file.side_effect = Exception('Storage limit exceeded')
@@ -107,10 +136,22 @@ class TestUploadFile:
             content='x' * 1000,
         )
 
-        # Assert
+        # Assert — generic Exception details are sanitized
         assert result['is_error'] is True
         assert result['path'] == 'data/big_file.bin'
-        assert 'Storage limit exceeded' in result['message']
+        assert 'Storage limit exceeded' not in result['message']
+        assert 'internal error' in result['message'].lower()
+
+    async def test_upload_file_path_traversal_rejected(self):
+        """Test path traversal attempt is rejected before reaching SDK."""
+        result = await files.upload_file(
+            session_id='session-123',
+            path='../../etc/passwd',
+            content='malicious',
+        )
+
+        assert result['is_error'] is True
+        assert 'Path traversal' in result['message']
 
 
 class TestDownloadFile:
@@ -172,11 +213,11 @@ class TestDownloadFile:
         # Assert
         assert result['is_error'] is True
         assert result['path'] == 'nonexistent.txt'
-        assert 'File not found' in result['message']
+        assert 'nonexistent.txt' in result['message']
 
     @patch(f'{MODULE_PATH}.get_client')
     async def test_download_file_sdk_exception(self, mock_get_client):
-        """Test handles generic SDK exception gracefully."""
+        """Test handles generic SDK exception gracefully without leaking details."""
         # Arrange
         mock_client = MagicMock()
         mock_client.download_file.side_effect = Exception('Connection error')
@@ -188,10 +229,21 @@ class TestDownloadFile:
             path='output/file.txt',
         )
 
-        # Assert
+        # Assert — generic Exception details are sanitized
         assert result['is_error'] is True
         assert result['path'] == 'output/file.txt'
-        assert 'Connection error' in result['message']
+        assert 'Connection error' not in result['message']
+        assert 'internal error' in result['message'].lower()
+
+    async def test_download_file_path_traversal_rejected(self):
+        """Test path traversal attempt is rejected before reaching SDK."""
+        result = await files.download_file(
+            session_id='session-123',
+            path='../../../secrets.txt',
+        )
+
+        assert result['is_error'] is True
+        assert 'Path traversal' in result['message'] or 'traversal' in result['message'].lower()
 
     @patch(f'{MODULE_PATH}.get_client')
     async def test_download_file_with_region(self, mock_get_client):

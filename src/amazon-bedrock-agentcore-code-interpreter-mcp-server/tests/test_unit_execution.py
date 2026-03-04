@@ -137,7 +137,7 @@ class TestExecuteCode:
 
     @patch(f'{MODULE_PATH}.get_client')
     async def test_execute_code_sdk_exception(self, mock_get_client):
-        """Test handles SDK exception gracefully."""
+        """Test handles SDK exception gracefully without leaking details."""
         # Arrange
         mock_client = MagicMock()
         mock_client.execute_code.side_effect = Exception('Session expired')
@@ -149,10 +149,28 @@ class TestExecuteCode:
             code='print("hi")',
         )
 
-        # Assert
+        # Assert — generic Exception details are sanitized
         assert result['is_error'] is True
-        assert 'Session expired' in result['stderr']
-        assert 'Session expired' in result['message']
+        assert 'Session expired' not in result['stderr']
+        assert 'internal error' in result['stderr'].lower()
+
+    @patch(f'{MODULE_PATH}.get_client')
+    async def test_execute_code_safe_exception_shows_details(self, mock_get_client):
+        """Test safe exception types (ValueError, TypeError) show details."""
+        # Arrange
+        mock_client = MagicMock()
+        mock_client.execute_code.side_effect = ValueError('Invalid language: brainfuck')
+        mock_get_client.return_value = mock_client
+
+        # Act
+        result = await execution.execute_code(
+            session_id='session-123',
+            code='print("hi")',
+        )
+
+        # Assert — ValueError is safe, details are shown
+        assert result['is_error'] is True
+        assert 'Invalid language: brainfuck' in result['stderr']
 
     @patch(f'{MODULE_PATH}.get_client')
     async def test_execute_code_string_result(self, mock_get_client):
@@ -223,7 +241,7 @@ class TestExecuteCommand:
 
     @patch(f'{MODULE_PATH}.get_client')
     async def test_execute_command_sdk_exception(self, mock_get_client):
-        """Test handles SDK exception gracefully."""
+        """Test handles SDK exception gracefully without leaking details."""
         # Arrange
         mock_client = MagicMock()
         mock_client.execute_command.side_effect = Exception('Timeout')
@@ -235,9 +253,10 @@ class TestExecuteCommand:
             command='sleep 999',
         )
 
-        # Assert
+        # Assert — generic Exception details are sanitized
         assert result['is_error'] is True
-        assert 'Timeout' in result['message']
+        assert 'Timeout' not in result['message']
+        assert 'internal error' in result['message'].lower()
 
 
 class TestInstallPackages:
