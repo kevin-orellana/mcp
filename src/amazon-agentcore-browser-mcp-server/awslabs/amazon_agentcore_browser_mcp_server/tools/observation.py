@@ -27,8 +27,12 @@ from awslabs.amazon_agentcore_browser_mcp_server.tools.error_handler import (
 )
 from loguru import logger
 from mcp.server.fastmcp import Context
+from os import getenv
 from pydantic import Field
 from typing import Annotated
+
+
+BROWSER_EVALUATE_DISABLED = getenv('BROWSER_DISABLE_EVALUATE', '').lower() == 'true'
 
 
 class ObservationTools:
@@ -50,7 +54,10 @@ class ObservationTools:
         mcp.tool(name='browser_wait_for')(self.browser_wait_for)
         mcp.tool(name='browser_console_messages')(self.browser_console_messages)
         mcp.tool(name='browser_network_requests')(self.browser_network_requests)
-        mcp.tool(name='browser_evaluate')(self.browser_evaluate)
+        if not BROWSER_EVALUATE_DISABLED:
+            mcp.tool(name='browser_evaluate')(self.browser_evaluate)
+        else:
+            logger.info('browser_evaluate tool disabled via BROWSER_DISABLE_EVALUATE=true')
 
     async def browser_snapshot(
         self,

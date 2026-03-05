@@ -296,7 +296,7 @@ class InteractionTools:
                 await locator.select_option(label=label, timeout=INTERACTION_TIMEOUT_MS)
             elif value is not None:
                 await locator.select_option(value=value, timeout=INTERACTION_TIMEOUT_MS)
-            elif index is not None:
+            else:
                 await locator.select_option(index=index, timeout=INTERACTION_TIMEOUT_MS)
 
         except RefNotFoundError:
