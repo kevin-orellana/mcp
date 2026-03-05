@@ -87,7 +87,6 @@ class ManagementTools:
         logger.info(f'Tab action={action} in session {session_id}')
 
         try:
-            browser = self._connection_manager.get_browser(session_id)
             context = self._connection_manager.get_context(session_id)
             pages = context.pages
 

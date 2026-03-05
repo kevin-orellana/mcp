@@ -224,7 +224,7 @@ class TestBrowserTabs:
 
     async def test_no_connection(self, management_tools, mock_ctx, mock_connection_manager):
         """Tabs with no connection returns error."""
-        mock_connection_manager.get_browser.side_effect = ValueError(
+        mock_connection_manager.get_context.side_effect = ValueError(
             'No connection for session nonexistent. Call start_browser_session first.'
         )
 
@@ -308,7 +308,7 @@ class TestBrowserTabs:
         self, management_tools, mock_ctx, mock_connection_manager
     ):
         """Generic exception in tabs returns error with snapshot fallback."""
-        mock_connection_manager.get_browser.side_effect = Exception('CDP error')
+        mock_connection_manager.get_context.side_effect = Exception('CDP error')
         page = MagicMock()
         mock_connection_manager.get_page.return_value = page
 
